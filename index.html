@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Xcorex MD - Pair Code</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0a0a0a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .container {
+      background: #1a1a1a;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6);
+      text-align: center;
+      width: 320px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+    }
+    button {
+      background: #0d6efd;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 10px;
+      width: 100%;
+    }
+    button:hover {
+      background: #0b5ed7;
+    }
+    .code-box {
+      background: #222;
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 18px;
+      letter-spacing: 2px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Xcorex MD</h2>
+    <p>Enter your WhatsApp number:</p>
+    <input type="text" id="phone" placeholder="+1234567890" />
+    <button onclick="getPairCode()">Get Pair Code</button>
+    <div id="pairCodeBox" class="code-box"></div>
+  </div>
+
+  <script>
+    async function getPairCode() {
+      const phone = document.getElementById("phone").value;
+      if (!phone) {
+        alert("Enter your phone number!");
+        return;
+      }
+
+      try {
+        const res = await fetch("http://localhost:3001/api/pair-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+
+        const box = document.getElementById("pairCodeBox");
+        box.style.display = "block";
+        box.innerText = data.code || "Error: no code received";
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+  </script>
+</body>
+</html>
