@@ -1,5 +1,6 @@
 import express from "express";
 import bodyParser from "body-parser";
+import cors from "cors";
 import makeWASocket, { 
   useMultiFileAuthState, 
   makeCacheableSignalKeyStore 
@@ -8,9 +9,10 @@ import { randomBytes } from "crypto";
 import fs from "fs";
 
 const app = express();
+app.use(cors()); // ✅ allow requests from frontend
 app.use(bodyParser.json());
 
-let sessions = {}; // store active sessions
+let sessions = {};
 
 // Route: Generate Pair Code
 app.post("/api/pair-code", async (req, res) => {
@@ -18,11 +20,9 @@ app.post("/api/pair-code", async (req, res) => {
   if (!phone) return res.status(400).json({ error: "Phone number required" });
 
   try {
-    // Ensure auth folder exists
     if (!fs.existsSync("./auth")) fs.mkdirSync("./auth");
 
     const { state, saveCreds } = await useMultiFileAuthState(`./auth/${phone}`);
-
     const sock = makeWASocket({
       auth: {
         creds: state.creds,
@@ -31,12 +31,10 @@ app.post("/api/pair-code", async (req, res) => {
       printQRInTerminal: false,
     });
 
-    // Baileys method to generate pairing code
     const code = await sock.requestPairingCode(phone);
     console.log(`Pair code for ${phone}: ${code}`);
-    res.json({ code });
+    res.json({ code }); // ✅ send code to frontend
 
-    // When connected, generate session ID + send welcome msg
     sock.ev.on("connection.update", (update) => {
       const { connection } = update;
       if (connection === "open") {
@@ -56,15 +54,4 @@ app.post("/api/pair-code", async (req, res) => {
   }
 });
 
-// Route: Get session by phone
-app.get("/api/session/:phone", (req, res) => {
-  const phone = req.params.phone;
-  if (sessions[phone]) {
-    res.json({ sessionId: sessions[phone] });
-  } else {
-    res.json({ error: "No active session for this number" });
-  }
-});
-
-// Start server
 app.listen(3001, () => console.log("✅ Backend running at http://localhost:3001"));
