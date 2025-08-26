@@ -1,24 +1,40 @@
-<script>
-  async function getPairCode() {
-    const phone = document.getElementById("phone").value;
-    if (!phone) {
-      alert("Enter your phone number!");
-      return;
-    }
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Xcore MD - Session Generator</title>
+  <style>
+    body { background:#0d0d0d; color:#fff; font-family:monospace; text-align:center; }
+    .box { margin:40px auto; padding:20px; border:2px solid #ff0000; width:350px; border-radius:10px; }
+    button { margin:10px; padding:10px 20px; border:none; border-radius:8px; background:#ff0000; color:#fff; cursor:pointer; }
+    input { padding:10px; width:80%; border-radius:8px; border:1px solid #ff0000; background:#1a1a1a; color:#fff; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>☠️ Xcorex MD Session Generator ☠️</h2>
+    <input type="text" id="phone" placeholder="Enter WhatsApp number with country code">
+    <br><br>
+    <button onclick="generateSession()">Generate Pair Code</button>
+    <p id="result"></p>
+  </div>
 
-    try {
-      const res = await fetch("http://localhost:3001/api/pair-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+  <script>
+    async function generateSession() {
+      let phone = document.getElementById("phone").value.trim();
+      if (!phone) return alert("Enter number with country code");
+
+      let res = await fetch("https://your-backend-url.onrender.com/pair", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ phone })
       });
 
-      const data = await res.json();
-      const box = document.getElementById("pairCodeBox");
-      box.style.display = "block";
-      box.innerText = data.code || "Error: no code received";
-    } catch (err) {
-      alert("Error: " + err.message);
+      let data = await res.json();
+      document.getElementById("result").innerText = data.code 
+        ? `Your Pair Code: ${data.code}` 
+        : "Error: " + data.error;
     }
-  }
-</script>
+  </script>
+</body>
+</html>
