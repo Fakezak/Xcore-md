@@ -1,57 +1,66 @@
+// backend/index.js
 import express from "express";
-import bodyParser from "body-parser";
+import makeWASocket, { useMultiFileAuthState, makeCacheableSignalKeyStore, fetchLatestBaileysVersion } from "@whiskeysockets/baileys";
+import P from "pino";
 import cors from "cors";
-import makeWASocket, { 
-  useMultiFileAuthState, 
-  makeCacheableSignalKeyStore 
-} from "@whiskeysockets/baileys";
-import { randomBytes } from "crypto";
-import fs from "fs";
 
 const app = express();
-app.use(cors()); // ✅ allow requests from frontend
-app.use(bodyParser.json());
+app.use(cors());
+app.use(express.json());
 
 let sessions = {};
 
-// Route: Generate Pair Code
-app.post("/api/pair-code", async (req, res) => {
-  const { phone } = req.body;
-  if (!phone) return res.status(400).json({ error: "Phone number required" });
-
+app.post("/pair", async (req, res) => {
   try {
-    if (!fs.existsSync("./auth")) fs.mkdirSync("./auth");
+    const { phone } = req.body;
+    if (!phone) return res.status(400).json({ error: "Phone number required" });
 
-    const { state, saveCreds } = await useMultiFileAuthState(`./auth/${phone}`);
+    const { state, saveCreds } = await useMultiFileAuthState(`./auth_info/${phone}`);
+    const { version } = await fetchLatestBaileysVersion();
+
     const sock = makeWASocket({
+      version,
+      logger: P({ level: "silent" }),
       auth: {
         creds: state.creds,
-        keys: makeCacheableSignalKeyStore(state.keys, undefined),
+        keys: makeCacheableSignalKeyStore(state.keys, P({ level: "silent" })),
       },
       printQRInTerminal: false,
-    });
-
-    const code = await sock.requestPairingCode(phone);
-    console.log(`Pair code for ${phone}: ${code}`);
-    res.json({ code }); // ✅ send code to frontend
-
-    sock.ev.on("connection.update", (update) => {
-      const { connection } = update;
-      if (connection === "open") {
-        const sessionId = "sess_" + randomBytes(6).toString("hex");
-        sessions[phone] = sessionId;
-
-        sock.sendMessage(phone + "@s.whatsapp.net", {
-          text: `Xcorex MD - ${sessionId}`,
-        });
-      }
+      mobile: true, // Pair code instead of QR
     });
 
     sock.ev.on("creds.update", saveCreds);
+
+    let code = await sock.requestPairingCode(phone);
+    sessions[phone] = { sock, code };
+
+    return res.json({ status: "success", code });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error("Pair error:", err);
+    res.status(500).json({ error: "Failed to generate code" });
   }
 });
 
-app.listen(3001, () => console.log("✅ Backend running at http://localhost:3001"));
+// Bot Menu (example buttons)
+app.post("/menu", (req, res) => {
+  const { phone } = req.body;
+  if (!sessions[phone]) return res.status(400).json({ error: "Session not found" });
+
+  let sock = sessions[phone].sock;
+
+  sock.sendMessage(`${phone}@s.whatsapp.net`, {
+    text: "🔥 Xcorex MD Main Menu 🔥",
+    footer: "Choose an option:",
+    buttons: [
+      { buttonId: "help", buttonText: { displayText: "📖 Help" }, type: 1 },
+      { buttonId: "bugmenu", buttonText: { displayText: "🐞 Bug Menu" }, type: 1 },
+      { buttonId: "owner", buttonText: { displayText: "👑 Owner" }, type: 1 }
+    ],
+    headerType: 1,
+  });
+
+  return res.json({ status: "menu sent" });
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log("Backend running on port " + PORT));
